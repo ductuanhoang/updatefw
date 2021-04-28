@@ -1,1 +1,4 @@
-1.0.1
+{
+  "version": 1.2,
+  "file": "https://raw.githubusercontent.com/ductuanhoang/updatefw/main/mqtt_ssl_mutual_auth.bin"
+}
