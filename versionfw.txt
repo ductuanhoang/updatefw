@@ -1,4 +1,4 @@
 {
   "version": 1.3,
-  "file": "https://raw.githubusercontent.com/ductuanhoang/updatefw/main/Anywave.bin"
+  "file": "https://raw.githubusercontent.com/ductuanhoang/updatefw/main/simple_ota.bin"
 }
