@@ -1,0 +1,73 @@
+{
+	"uart2": {
+		"parity": 0,
+		"baud_rate": 115200,
+		"flow_control": 0,
+		"stop_bits": 1,
+		"data_bits": 8
+	},
+    "mqtt": {
+        "client_id": "go_mqtt_client",
+        "server": "m13.cloudmqtt.com",
+        "port": 11734,
+        "user": "wcewiofp",
+        "pwd": "TMnDUOEAKR8a",
+		"product_secret": "f1895fdd4141c7f1b6f13844c9be1c66",
+		"pub_topic_response": "/icom-charger/port/status/293526934",
+        "pub_topic_report": "/icom-charger/charging-status",
+        "pub_topic_close": "/icom-charger/port/port-closed",
+        "pub_topic_heartbeat": "/icom-charger/heartbeat",
+		"sub_topic_01": "/icom-charger/device/293526934/ctl/port"
+	},
+    "device_info": {
+        "MAC": "293526934"
+    },
+    "mqtt_icom": {
+        "client_id": "go_mqtt_client_293526934",
+        "server": "1.53.252.177",
+        "port": 1884,
+        "user": "admin",
+        "pwd": "Icom@2023!@#456",
+		"product_secret": "f1895fdd4141c7f1b6f13844c9be1c66",
+		"pub_topic_response": "/icom-charger/port/status/",
+        "pub_topic_report": "/icom-charger/charging-status",
+        "pub_topic_heartbeat": "/icom-charger/heartbeat",
+        "pub_topic_close": "/icom-charger/port/port-closed",
+		"sub_topic_01": "/icom-charger/device/293526934/ctl/port"
+	},
+    "control":{
+        "connectorId": "connectorId",
+        "transactionId": "transactionId",
+        "status": "status"
+    },
+    "fota":{
+		"mode": 0,
+		"url": "app.py,tuan.py,yolo.py"
+    },
+	"uart1": {
+		"parity": 0,
+		"flow_control": 0,
+		"baud_rate": 115200,
+		"stop_bits": 1,
+		"data_bits": 8
+	},
+	"uart0": {
+		"baud_rate": 115200,
+		"parity": 0,
+		"flow_control": 0,
+		"stop_bits": 1,
+		"data_bits": 8
+	},
+	"timer1": {
+		"status": 1,
+		"period": 3000,
+		"mode": 1,
+		"callback": "bl09_com"
+	},
+    "timer2": {
+		"status": 2,
+		"period": 30000,
+		"mode": 1,
+		"callback": "report_message"
+	}
+}
