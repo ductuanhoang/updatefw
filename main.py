@@ -472,7 +472,7 @@ def start_one_job(args):
 
     
     if "bl09_com" in timerID_1_job_name_list:
-        print("***** Running timer bl09_com")
+        print("***** Running timer bl09_com version 1.0.2")
         IcomBL09.Bl0939SetCommand(count_state_machine)
         if count_state_machine == 1:
             if port_01.getActive():
