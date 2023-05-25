@@ -11,7 +11,7 @@
         "server": "m13.cloudmqtt.com",
         "port": 11734,
         "user": "wcewiofp",
-        "pwd": "TMnDUOEAKR8a",
+        "pwd": "D3U8d5Sfkrwr",
 		"product_secret": "f1895fdd4141c7f1b6f13844c9be1c66",
 		"pub_topic_response": "/icom-charger/port/status/293526934",
         "pub_topic_report": "/icom-charger/charging-status",
@@ -20,11 +20,12 @@
 		"sub_topic_01": "/icom-charger/device/293526934/ctl/port"
 	},
     "device_info": {
-        "MAC": "293526934"
+        "MAC": "293526934",
+		"VERSION": "1.0.1"
     },
     "mqtt_icom": {
         "client_id": "go_mqtt_client_293526934",
-        "server": "1.53.252.177",
+        "server": "ev.vitacharge.vn",
         "port": 1884,
         "user": "admin",
         "pwd": "Icom@2023!@#456",

@@ -22,7 +22,7 @@ from machine import Timer
 import ujson
 
 PROJECT_NAME = "ICom-Charger"
-PROJECT_VERSION = "1.0.1"
+PROJECT_VERSION = "1.0.2"
 CHARGER_MAX_PORT = 12
 TIME_OUT_DETECT_FULL_LOAD = 1
 checknet = checkNet.CheckNetwork(PROJECT_NAME, PROJECT_VERSION)
@@ -134,6 +134,7 @@ class data_value(object):
         self.ID = 0
         self.timeOut = 0
         self.expected_watt = 0
+        self.ReplyChannel = "None"
 
     def setDataValue(self, Voltage, Current, Power, PowerConsumption):
         self.Voltage = Voltage
@@ -173,7 +174,13 @@ class data_value(object):
 
     def resetTimeOutCount(self):
         self.timeOut = 0
+    
+    def setReplyChannel(self, _reply_channel):
+        self.ReplyChannel = _reply_channel
 
+    def getReplyChannel(self):
+        return self.ReplyChannel
+    
 port_01 = data_value(False, 0, 0, 0, 0)
 port_02 = data_value(False, 0, 0, 0, 0)
 port_03 = data_value(False, 0, 0, 0, 0)
@@ -278,42 +285,42 @@ class IcomBL09(object):
                         port_01.calPowerConsumption((current_A * voltage * 18) / 3600 / 1000)
                     if port_02.getActive() == True:
                         port_02.setDataValue(voltage, current_B, power_B, energy_B)
-                        port_02.calPowerConsumption((current_A * voltage * 18) / 3600 / 1000)
+                        port_02.calPowerConsumption((current_B * voltage * 18) / 3600 / 1000)
                 if self.Bl0939GetCommand() == 2:
                     if port_03.getActive() == True:
                         port_03.setDataValue(voltage, current_A, power_A, energy_A)
                         port_03.calPowerConsumption((current_A * voltage * 18) / 3600 / 1000)
                     if port_04.getActive() == True:
                         port_04.setDataValue(voltage, current_B, power_B, energy_B)
-                        port_04.calPowerConsumption((current_A * voltage * 18) / 3600 / 1000)
+                        port_04.calPowerConsumption((current_B * voltage * 18) / 3600 / 1000)
                 if self.Bl0939GetCommand() == 3:
                     if port_05.getActive() == True:
                         port_05.setDataValue(voltage, current_A, power_A, energy_A)
                         port_05.calPowerConsumption((current_A * voltage * 18) / 3600 / 1000)
                     if port_06.getActive() == True:
                         port_06.setDataValue(voltage, current_B, power_B, energy_B)
-                        port_06.calPowerConsumption((current_A * voltage * 18) / 3600 / 1000)
+                        port_06.calPowerConsumption((current_B * voltage * 18) / 3600 / 1000)
                 if self.Bl0939GetCommand() == 4:
                     if port_07.getActive() == True:
                         port_07.setDataValue(voltage, current_A, power_A, energy_A)
                         port_07.calPowerConsumption((current_A * voltage * 18) / 3600 / 1000)
                     if port_08.getActive() == True:
                         port_08.setDataValue(voltage, current_B, power_B, energy_B)
-                        port_08.calPowerConsumption((current_A * voltage * 18) / 3600 / 1000)
+                        port_08.calPowerConsumption((current_B * voltage * 18) / 3600 / 1000)
                 if self.Bl0939GetCommand() == 5:
                     if port_09.getActive() == True:
                         port_09.setDataValue(voltage, current_A, power_A, energy_A)
                         port_09.calPowerConsumption((current_A * voltage * 18) / 3600 / 1000)
                     if port_10.getActive() == True:
                         port_10.setDataValue(voltage, current_B, power_B, energy_B)
-                        port_10.calPowerConsumption((current_A * voltage * 18) / 3600 / 1000)
+                        port_10.calPowerConsumption((current_B * voltage * 18) / 3600 / 1000)
                 if self.Bl0939GetCommand() == 6:
                     if port_11.getActive() == True:
                         port_11.setDataValue(voltage, current_A, power_A, energy_A)
                         port_11.calPowerConsumption((current_A * voltage * 18) / 3600 / 1000)
                     if port_12.getActive() == True:
                         port_12.setDataValue(voltage, current_B, power_B, energy_B)
-                        port_12.calPowerConsumption((current_A * voltage * 18) / 3600 / 1000)
+                        port_12.calPowerConsumption((current_B * voltage * 18) / 3600 / 1000)
 
     def B0939DebugPrint(self, tps1, voltage, energy_A, energy_B, current_A, current_B, power_A, power_B):
         uart_log.info("tps1 : {}".format(tps1))
@@ -376,6 +383,7 @@ def parser_message_command(para):
 
 bs_config = None
 device_MAC = None
+device_version = None
 state = 1
 timer_name_list = ["timer0", "timer1", "timer2", "timer3"]
 timer_list = [Timer.Timer0, Timer.Timer1, Timer.Timer2, Timer.Timer3]
@@ -531,8 +539,9 @@ def start_job_report(args):
             ID, Voltage,Current, Power, PowerConsumption = port_01.getDataValue()
             device_MAC
             message = bs_mqtt.messagePackageValue(device_MAC,1, ID, Voltage, Current, Power, PowerConsumption)
-            if ((PowerConsumption * 1000) > port_01.getExpectedWatt()):
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "over_expected_watt")
+            if ((PowerConsumption ) > port_01.getExpectedWatt()):
+                    _reply_channel = port_01.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 1, ID, PowerConsumption, "over_expected_watt",  _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_01.resetTimeOutCount()
                     port_01.resetPowerConsumption()
@@ -543,7 +552,8 @@ def start_job_report(args):
                     bs_mqtt.publish(message, "report", _reply_channel)
                     port_01.increaseTimeOutCount()
                 else:
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "full_load")
+                    _reply_channel = port_01.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 1, ID, PowerConsumption, "full_load",  _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_01.resetTimeOutCount()
                     port_01.resetPowerConsumption()
@@ -555,11 +565,12 @@ def start_job_report(args):
             b_report_message = True
         if port_02.getActive():
             ID, Voltage,Current, Power, PowerConsumption = port_02.getDataValue()
-            message = bs_mqtt.messagePackageValue(device_MAC,2, ID, Voltage, Current, Power, PowerConsumption)
+            message = bs_mqtt.messagePackageValue(device_MAC, 2, ID, Voltage, Current, Power, PowerConsumption)
 
-            main_log.info("getTimeOutCount " + port_02.getTimeOutCount() + "Power " + Power)
-            if ((PowerConsumption * 1000) > port_02.getExpectedWatt()):
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "over_expected_watt")
+            # main_log.info("getTimeOutCount " + port_02.getTimeOutCount() + "Power " + Power)
+            if ((PowerConsumption ) > port_02.getExpectedWatt()):
+                    _reply_channel = port_02.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 2, ID, PowerConsumption, "over_expected_watt",  _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_02.resetTimeOutCount()
                     port_02.resetPowerConsumption()
@@ -571,7 +582,8 @@ def start_job_report(args):
                     port_02.increaseTimeOutCount()
                 else:
                     main_log.info("----- auto off port")
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "full_load")
+                    _reply_channel = port_02.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 2, ID, PowerConsumption, "full_load",  _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_02.resetTimeOutCount()
                     port_02.setActive(0)
@@ -584,8 +596,9 @@ def start_job_report(args):
         if port_03.getActive():
             ID, Voltage,Current, Power, PowerConsumption = port_03.getDataValue()
             message = bs_mqtt.messagePackageValue(device_MAC,3, ID, Voltage, Current, Power, PowerConsumption)
-            if ((PowerConsumption * 1000) > port_03.getExpectedWatt()):
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "over_expected_watt")
+            if ((PowerConsumption ) > port_03.getExpectedWatt()):
+                    _reply_channel = port_03.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 3, ID, PowerConsumption, "over_expected_watt",  _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_03.resetTimeOutCount()
                     port_03.resetPowerConsumption()
@@ -596,7 +609,8 @@ def start_job_report(args):
                     bs_mqtt.publish(message, "report", _reply_channel)
                     port_03.increaseTimeOutCount()
                 else:
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "full_load")
+                    _reply_channel = port_03.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 3, ID, PowerConsumption, "full_load",  _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_03.resetTimeOutCount()
                     port_03.setActive(0)
@@ -608,8 +622,9 @@ def start_job_report(args):
         if port_04.getActive():
             ID, Voltage,Current, Power, PowerConsumption = port_04.getDataValue()
             message = bs_mqtt.messagePackageValue(device_MAC,4, ID, Voltage, Current, Power, PowerConsumption)
-            if ((PowerConsumption * 1000) > port_04.getExpectedWatt()):
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "over_expected_watt")
+            if ((PowerConsumption ) > port_04.getExpectedWatt()):
+                    _reply_channel = port_04.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 4, ID, PowerConsumption, "over_expected_watt",  _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_04.resetTimeOutCount()
                     port_04.resetPowerConsumption()
@@ -620,7 +635,8 @@ def start_job_report(args):
                     bs_mqtt.publish(message, "report", _reply_channel)
                     port_04.increaseTimeOutCount()
                 else:
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "full_load")
+                    _reply_channel = port_04.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 4, ID, PowerConsumption, "full_load",  _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_04.resetTimeOutCount()
                     port_04.setActive(0)
@@ -632,8 +648,9 @@ def start_job_report(args):
         if port_05.getActive():
             ID, Voltage,Current, Power, PowerConsumption = port_05.getDataValue()
             message = bs_mqtt.messagePackageValue(device_MAC,5, ID, Voltage, Current, Power, PowerConsumption)
-            if ((PowerConsumption * 1000) > port_05.getExpectedWatt()):
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "over_expected_watt")
+            if ((PowerConsumption ) > port_05.getExpectedWatt()):
+                    _reply_channel = port_05.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 5, ID, PowerConsumption, "over_expected_watt",  _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_05.resetTimeOutCount()
                     port_05.resetPowerConsumption()
@@ -644,7 +661,8 @@ def start_job_report(args):
                     bs_mqtt.publish(message, "report", _reply_channel)
                     port_05.increaseTimeOutCount()
                 else:
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "full_load")
+                    _reply_channel = port_05.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 5, ID, PowerConsumption, "full_load",  _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_05.resetTimeOutCount()
                     port_05.setActive(0)
@@ -656,8 +674,9 @@ def start_job_report(args):
         if port_06.getActive():
             ID, Voltage,Current, Power, PowerConsumption = port_06.getDataValue()
             message = bs_mqtt.messagePackageValue(device_MAC,6, ID, Voltage, Current, Power, PowerConsumption)
-            if ((PowerConsumption * 1000) > port_06.getExpectedWatt()):
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "over_expected_watt")
+            if ((PowerConsumption ) > port_06.getExpectedWatt()):
+                    _reply_channel = port_06.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 6, ID, PowerConsumption, "over_expected_watt",  _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_06.resetTimeOutCount()
                     port_06.resetPowerConsumption()
@@ -668,7 +687,8 @@ def start_job_report(args):
                     bs_mqtt.publish(message, "report", _reply_channel)
                     port_06.increaseTimeOutCount()
                 else:
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "full_load")
+                    _reply_channel = port_06.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 6, ID, PowerConsumption, "full_load",  _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_06.resetTimeOutCount()
                     port_06.setActive(0)
@@ -680,8 +700,9 @@ def start_job_report(args):
         if port_07.getActive():
             ID, Voltage,Current, Power, PowerConsumption = port_07.getDataValue()
             message = bs_mqtt.messagePackageValue(device_MAC,7, ID, Voltage, Current, Power, PowerConsumption)
-            if ((PowerConsumption * 1000) > port_07.getExpectedWatt()):
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "over_expected_watt")
+            if ((PowerConsumption ) > port_07.getExpectedWatt()):
+                    _reply_channel = port_07.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 7, ID, PowerConsumption, "over_expected_watt",  _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_07.resetTimeOutCount()
                     port_07.resetPowerConsumption()
@@ -692,7 +713,8 @@ def start_job_report(args):
                     bs_mqtt.publish(message, "report", _reply_channel)
                     port_07.increaseTimeOutCount()
                 else:
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "full_load")
+                    _reply_channel = port_07.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 7, ID, PowerConsumption, "full_load",  _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_07.resetTimeOutCount()
                     port_07.setActive(0)
@@ -704,8 +726,9 @@ def start_job_report(args):
         if port_08.getActive():
             ID, Voltage,Current, Power, PowerConsumption = port_08.getDataValue()
             message = bs_mqtt.messagePackageValue(device_MAC,8, ID, Voltage, Current, Power, PowerConsumption)
-            if ((PowerConsumption * 1000) > port_08.getExpectedWatt()):
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "over_expected_watt")
+            if ((PowerConsumption ) > port_08.getExpectedWatt()):
+                    _reply_channel = port_08.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 8, ID, PowerConsumption, "over_expected_watt",  _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_08.resetTimeOutCount()
                     port_08.resetPowerConsumption()
@@ -716,7 +739,8 @@ def start_job_report(args):
                     bs_mqtt.publish(message, "report", _reply_channel)
                     port_08.increaseTimeOutCount()
                 else:
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "full_load")
+                    _reply_channel = port_08.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 8, ID, PowerConsumption, "full_load",  _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_08.resetTimeOutCount()
                     port_08.setActive(0)
@@ -728,8 +752,9 @@ def start_job_report(args):
         if port_09.getActive():
             ID, Voltage,Current, Power, PowerConsumption = port_09.getDataValue()
             message = bs_mqtt.messagePackageValue(device_MAC,9, ID, Voltage, Current, Power, PowerConsumption)
-            if ((PowerConsumption * 1000) > port_09.getExpectedWatt()):
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "over_expected_watt")
+            if ((PowerConsumption ) > port_09.getExpectedWatt()):
+                    _reply_channel = port_09.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 9, ID, PowerConsumption, "over_expected_watt",  _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_09.resetTimeOutCount()
                     port_09.resetPowerConsumption()
@@ -740,7 +765,8 @@ def start_job_report(args):
                     bs_mqtt.publish(message, "report", _reply_channel)
                     port_09.increaseTimeOutCount()
                 else:
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "full_load")
+                    _reply_channel = port_09.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 9, ID, PowerConsumption, "full_load",  _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_09.resetTimeOutCount()
                     port_09.setActive(0)
@@ -752,8 +778,9 @@ def start_job_report(args):
         if port_10.getActive():
             ID, Voltage,Current, Power, PowerConsumption = port_10.getDataValue()
             message = bs_mqtt.messagePackageValue(device_MAC,10, ID, Voltage, Current, Power, PowerConsumption)
-            if ((PowerConsumption * 1000) > port_10.getExpectedWatt()):
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "over_expected_watt")
+            if ((PowerConsumption ) > port_10.getExpectedWatt()):
+                    _reply_channel = port_10.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 10, ID, PowerConsumption, "over_expected_watt",  _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_10.resetTimeOutCount()
                     port_10.resetPowerConsumption()
@@ -764,7 +791,8 @@ def start_job_report(args):
                     bs_mqtt.publish(message, "report", _reply_channel)
                     port_10.increaseTimeOutCount()
                 else:
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "full_load")
+                    _reply_channel = port_10.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 10, ID, PowerConsumption, "full_load", _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_10.resetTimeOutCount()
                     port_10.setActive(0)
@@ -776,8 +804,9 @@ def start_job_report(args):
         if port_11.getActive():
             ID, Voltage,Current, Power, PowerConsumption = port_11.getDataValue()
             message = bs_mqtt.messagePackageValue(device_MAC,11, ID, Voltage, Current, Power, PowerConsumption)
-            if ((PowerConsumption * 1000) > port_11.getExpectedWatt()):
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "over_expected_watt")
+            if ((PowerConsumption ) > port_11.getExpectedWatt()):
+                    _reply_channel = port_11.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 11, ID, PowerConsumption, "over_expected_watt", _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_11.resetTimeOutCount()
                     port_11.resetPowerConsumption()
@@ -788,7 +817,8 @@ def start_job_report(args):
                     bs_mqtt.publish(message, "report", _reply_channel)
                     port_11.increaseTimeOutCount()
                 else:
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "full_load")
+                    _reply_channel = port_11.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 11, ID, PowerConsumption, "full_load", _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_11.resetTimeOutCount()
                     port_11.setActive(0)
@@ -800,8 +830,9 @@ def start_job_report(args):
         if port_12.getActive():
             ID, Voltage,Current, Power, PowerConsumption = port_12.getDataValue()
             message = bs_mqtt.messagePackageValue(device_MAC,12, ID, Voltage, Current, Power, PowerConsumption)
-            if ((PowerConsumption * 1000) > port_12.getExpectedWatt()):
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "over_expected_watt")
+            if ((PowerConsumption ) > port_12.getExpectedWatt()):
+                    _reply_channel = port_12.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 12, ID, PowerConsumption, "over_expected_watt", _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_12.resetTimeOutCount()
                     port_12.resetPowerConsumption()
@@ -812,7 +843,8 @@ def start_job_report(args):
                     bs_mqtt.publish(message, "report", _reply_channel)
                     port_12.increaseTimeOutCount()
                 else:
-                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, port, ID, PowerConsumption, "full_load")
+                    _reply_channel = port_12.getReplyChannel()
+                    message = bs_mqtt.messagePackagePortCloseWithReason(device_MAC, 12, ID, PowerConsumption, "full_load", _reply_channel)
                     bs_mqtt.publish(message, "portclosed", _reply_channel)
                     port_12.resetTimeOutCount()
                     port_12.setActive(0)
@@ -829,7 +861,7 @@ def start_job_report(args):
             # buffer = str(year) + ":" + str(month) + ":" + str(mday ) + " " + str(hour) + ":" + str(minute) + ":" + str(second)
             buffer = "%d-%02d-%02d %02d:%02d:%02d" % (year, month, mday, hour, minute, second)
             main_log.info("heartbeat time is " + buffer)
-            message = bs_mqtt.messagePackageHeartBeat(device_MAC, buffer)
+            message = bs_mqtt.messagePackageHeartBeat(device_MAC, buffer, device_version)
             bs_mqtt.publish(message, "heartbeat", _reply_channel)
 
     is_timer_job_report_running = False
@@ -950,9 +982,10 @@ def action_process_command(port, id, status, _reply_channel, _expected_watt):
             port_01.setActive(status)
             port_01.setID((id))
             port_01.setExpectedWatt(_expected_watt)
+            port_01.setReplyChannel(_reply_channel)
             if status == 0:
                 ID, Voltage,Current, Power, PowerConsumption = port_01.getDataValue()
-                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption)
+                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption,_reply_channel)
                 bs_mqtt.publish(message, "portclosed", _reply_channel)
                 port_01.resetPowerConsumption()
         else:
@@ -964,9 +997,10 @@ def action_process_command(port, id, status, _reply_channel, _expected_watt):
             port_02.setActive((status))
             port_02.setID((id))
             port_02.setExpectedWatt(_expected_watt)
+            port_02.setReplyChannel(_reply_channel)
             if status == 0:
                 ID, Voltage,Current, Power, PowerConsumption = port_02.getDataValue()
-                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption)
+                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption,_reply_channel)
                 bs_mqtt.publish(message, "portclosed", _reply_channel)
                 port_02.resetPowerConsumption()
         else:
@@ -977,9 +1011,10 @@ def action_process_command(port, id, status, _reply_channel, _expected_watt):
             port_03.setActive((status))
             port_03.setID((id))
             port_03.setExpectedWatt(_expected_watt)
+            port_03.setReplyChannel(_reply_channel)
             if status == 0:
                 ID, Voltage,Current, Power, PowerConsumption = port_03.getDataValue()
-                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption)
+                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption,_reply_channel)
                 bs_mqtt.publish(message, "portclosed", _reply_channel)
                 port_03.resetPowerConsumption()
         else:
@@ -990,9 +1025,10 @@ def action_process_command(port, id, status, _reply_channel, _expected_watt):
             port_04.setActive((status))
             port_04.setID((id))
             port_04.setExpectedWatt(_expected_watt)
+            port_04.setReplyChannel(_reply_channel)
             if status == 0:
                 ID, Voltage,Current, Power, PowerConsumption = port_04.getDataValue()
-                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption)
+                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption,_reply_channel)
                 bs_mqtt.publish(message, "portclosed", _reply_channel)
                 port_04.resetPowerConsumption()
         else:
@@ -1003,9 +1039,10 @@ def action_process_command(port, id, status, _reply_channel, _expected_watt):
             port_05.setActive((status))
             port_05.setID((id))
             port_05.setExpectedWatt(_expected_watt)
+            port_05.setReplyChannel(_reply_channel)
             if status == 0:
                 ID, Voltage,Current, Power, PowerConsumption = port_05.getDataValue()
-                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption)
+                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption,_reply_channel)
                 bs_mqtt.publish(message, "portclosed", _reply_channel)
                 port_05.resetPowerConsumption()
         else:
@@ -1016,9 +1053,10 @@ def action_process_command(port, id, status, _reply_channel, _expected_watt):
             port_06.setActive((status))
             port_06.setID((id))
             port_06.setExpectedWatt(_expected_watt)
+            port_06.setReplyChannel(_reply_channel)
             if status == 0:
                 ID, Voltage,Current, Power, PowerConsumption = port_06.getDataValue()
-                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption)
+                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption,_reply_channel)
                 bs_mqtt.publish(message, "portclosed", _reply_channel)
                 port_06.resetPowerConsumption()
         else:
@@ -1029,10 +1067,11 @@ def action_process_command(port, id, status, _reply_channel, _expected_watt):
             port_07.setActive((status))
             port_07.setID((id))
             port_07.setExpectedWatt(_expected_watt)
+            port_07.setReplyChannel(_reply_channel)
             if status == 0:
 
                 ID, Voltage,Current, Power, PowerConsumption = port_07.getDataValue()
-                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption)
+                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption,_reply_channel)
                 bs_mqtt.publish(message, "portclosed", _reply_channel)
                 port_07.resetPowerConsumption()
         else:
@@ -1043,9 +1082,10 @@ def action_process_command(port, id, status, _reply_channel, _expected_watt):
             port_08.setActive((status))
             port_08.setID((id))
             port_08.setExpectedWatt(_expected_watt)
+            port_08.setReplyChannel(_reply_channel)
             if status == 0:
                 ID, Voltage,Current, Power, PowerConsumption = port_08.getDataValue()
-                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption)
+                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption,_reply_channel)
                 bs_mqtt.publish(message, "portclosed", _reply_channel)
                 port_08.resetPowerConsumption()
         else:
@@ -1056,9 +1096,10 @@ def action_process_command(port, id, status, _reply_channel, _expected_watt):
             port_09.setActive((status))
             port_09.setID((id))
             port_09.setExpectedWatt(_expected_watt)
+            port_09.setReplyChannel(_reply_channel)
             if status == 0:
                 ID, Voltage,Current, Power, PowerConsumption = port_09.getDataValue()
-                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption)
+                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption,_reply_channel)
                 bs_mqtt.publish(message, "portclosed", _reply_channel)
                 port_09.resetPowerConsumption()
         else:
@@ -1069,9 +1110,10 @@ def action_process_command(port, id, status, _reply_channel, _expected_watt):
             port_10.setActive((status))
             port_10.setID((id))
             port_10.setExpectedWatt(_expected_watt)
+            port_10.setReplyChannel(_reply_channel)
             if status == 0:
                 ID, Voltage,Current, Power, PowerConsumption = port_10.getDataValue()
-                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption)
+                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption,_reply_channel)
                 bs_mqtt.publish(message, "portclosed", _reply_channel)
                 port_10.resetPowerConsumption()
         else:
@@ -1082,9 +1124,10 @@ def action_process_command(port, id, status, _reply_channel, _expected_watt):
             port_11.setActive((status))
             port_11.setID((id))
             port_11.setExpectedWatt(_expected_watt)
+            port_11.setReplyChannel(_reply_channel)
             if status == 0:
                 ID, Voltage,Current, Power, PowerConsumption = port_11.getDataValue()
-                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption)
+                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption,_reply_channel)
                 bs_mqtt.publish(message, "portclosed", _reply_channel)
                 port_11.resetPowerConsumption()
         else:
@@ -1095,9 +1138,10 @@ def action_process_command(port, id, status, _reply_channel, _expected_watt):
             port_12.setActive((status))
             port_12.setID((id))
             port_12.setExpectedWatt(_expected_watt)
+            port_12.setReplyChannel(_reply_channel)
             if status == 0:
                 ID, Voltage,Current, Power, PowerConsumption = port_12.getDataValue()
-                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption)
+                message = bs_mqtt.messagePackagePortClose(device_MAC, port, id, PowerConsumption,_reply_channel)
                 bs_mqtt.publish(message, "portclosed", _reply_channel)
                 port_12.resetPowerConsumption()
         else:
@@ -1148,6 +1192,7 @@ if __name__ == "__main__":
     device_config = bs_config.read_config_by_name(config, 'device_info')
     uart_log.info("MAC = " + str(device_config["MAC"]))
     device_MAC = str(device_config["MAC"])
+    device_version = str(device_config["VERSION"])
 
     main_log.info("Init timer service")
     init_timer(config)
